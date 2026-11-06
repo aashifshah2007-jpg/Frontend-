@@ -1,0 +1,11 @@
+{
+  "name": "baseic-clothing-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node --test tests/cart.test.js tests/checkout.test.js",
+    "test:e2e": "npx playwright test tests/frontend.e2e.spec.js"
+  }
+}

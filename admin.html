@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin Dashboard - BASEIC</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { black: '#0a0a0a', gray: '#1f1f1f', accent: '#10b981' } },
+          fontFamily: { sans: ['Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-brand-black text-white font-sans antialiased min-h-screen">
+
+  <!-- ================= LOGIN VIEW ================= -->
+  <div id="login-view" class="flex items-center justify-center min-h-screen">
+    <div class="bg-brand-gray p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-800">
+      <h2 class="text-2xl font-bold mb-6 text-center tracking-tight">Admin Login</h2>
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Email</label>
+          <input type="email" id="email" required class="w-full bg-black border border-gray-700 rounded p-3 text-white focus:outline-none focus:border-brand-accent">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Password</label>
+          <input type="password" id="password" required class="w-full bg-black border border-gray-700 rounded p-3 text-white focus:outline-none focus:border-brand-accent">
+        </div>
+        <button type="submit" class="w-full bg-white text-black font-bold py-3 rounded hover:bg-gray-200 transition">Login</button>
+        <p id="login-error" class="text-red-500 text-sm text-center hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= DASHBOARD VIEW ================= -->
+  <div id="dashboard-view" class="hidden max-w-7xl mx-auto p-4 md:p-8">
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+      <h1 class="text-2xl font-bold tracking-tighter">BASEIC <span class="text-gray-500">Admin</span></h1>
+      <div class="flex gap-4"><button id="refresh-btn" class="text-sm text-gray-400 hover:text-white transition">Refresh</button><button id="logout-btn" class="text-sm text-gray-400 hover:text-white transition">Logout</button></div>
+    </header>
+
+    <!-- Metrics Cards -->
+    <p class="text-xs text-gray-500 mb-3">Revenue and best sellers count only orders that are <b>Verified</b> and <b>Completed</b>.</p>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800">
+        <p class="text-gray-400 text-sm mb-1">Revenue Today</p>
+        <h3 id="metric-today" class="text-2xl font-bold text-brand-accent">Rs. 0</h3>
+      </div>
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800">
+        <p class="text-gray-400 text-sm mb-1">Last 7 Days</p>
+        <h3 id="metric-weekly" class="text-2xl font-bold text-white">Rs. 0</h3>
+      </div>
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800">
+        <p class="text-gray-400 text-sm mb-1">Last 30 Days</p>
+        <h3 id="metric-monthly" class="text-2xl font-bold text-white">Rs. 0</h3>
+      </div>
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800">
+        <p class="text-gray-400 text-sm mb-1">Top Trending Item</p>
+        <h3 id="metric-top-item" class="text-lg font-bold text-white truncate">N/A</h3>
+      </div>
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800 col-span-2 md:col-span-1">
+        <p class="text-gray-400 text-sm mb-1">Total Orders</p>
+        <h3 id="metric-total-orders" class="text-2xl font-bold text-white">0</h3>
+      </div>
+    </div>
+
+    <!-- Analytics Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800 lg:col-span-2">
+        <h2 class="text-lg font-bold mb-4">Sales Trend (Last 30 Days)</h2>
+        <div class="h-64 w-full"><canvas id="salesChart"></canvas></div>
+      </div>
+      <div class="bg-brand-gray p-6 rounded-xl border border-gray-800">
+        <h2 class="text-lg font-bold mb-4">Top Selling Items</h2>
+        <div class="h-48 w-full"><canvas id="itemsChart"></canvas></div>
+        <ul id="top-items-list" class="mt-4 space-y-1 text-sm text-gray-300"></ul>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="bg-brand-gray rounded-xl border border-gray-800 overflow-hidden">
+      <div class="p-6 border-b border-gray-800 space-y-3">
+        <h2 class="text-lg font-bold">Orders <span id="orders-count" class="text-sm text-gray-500 font-normal"></span></h2>
+        <div id="status-filters" class="flex flex-wrap gap-2"></div>
+        <input id="order-search" type="search" placeholder="Search by order ID, name, phone or city" class="w-full md:w-96 bg-black border border-gray-700 rounded p-2 text-sm text-white focus:outline-none focus:border-brand-accent">
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-black text-gray-400">
+            <tr>
+              <th class="p-4 font-medium">Order ID</th>
+              <th class="p-4 font-medium">Customer</th>
+              <th class="p-4 font-medium">Items</th>
+              <th class="p-4 font-medium">Total</th>
+              <th class="p-4 font-medium">Payment</th>
+              <th class="p-4 font-medium">Order status</th>
+              <th class="p-4 font-medium">Proof</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body" class="divide-y divide-gray-800">
+            <tr><td colspan="7" class="p-4 text-center text-gray-500">Loading orders...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= IMAGE MODAL ================= -->
+  <div id="image-modal" class="fixed inset-0 bg-black/90 hidden items-center justify-center z-50 p-4">
+    <div class="relative max-w-3xl w-full">
+      <button id="close-modal" class="absolute -top-10 right-0 text-white text-xl font-bold hover:text-gray-400">&times; Close</button>
+      <img id="modal-image" src="" alt="Payment Screenshot" class="w-full h-auto rounded-lg border border-gray-700">
+    </div>
+  </div>
+
+  <!-- ================= APPLICATION LOGIC ================= -->
+  <script type="module">
+    import { config } from './js/config.js';
+    import { esc } from './js/format.js';
+
+    // The admin page logs in with Supabase Auth (anon key, public by design).
+    // All data and changes go through the Render backend, which verifies the
+    // admin role on every request. No service-role key is used here.
+    const API = (config.orders?.endpoint || '').replace(/\/+$/, '');
+    const { supabaseUrl, supabaseAnonKey } = config.admin || {};
+    const configured = supabaseUrl && supabaseAnonKey &&
+      !supabaseUrl.startsWith('YOUR_') && !supabaseAnonKey.startsWith('YOUR_');
+
+    const sb = configured
+      ? window.supabase.createClient(supabaseUrl, supabaseAnonKey)
+      : null;
+
+    const ORDER_STATUSES = ['In process', 'Completed', 'Returned'];
+    const PAYMENT_STATUSES = ['In process', 'Verified', 'Rejected'];
+    const PAYMENT_LABELS = { cod: 'Cash on delivery', bank: 'Bank transfer' };
+    const money = (n) => `Rs. ${Number(n || 0).toLocaleString('en-NP')}`;
+    const $ = (id) => document.getElementById(id);
+
+    let salesChart = null;
+    let itemsChart = null;
+    let allOrders = [];
+    let statusFilter = 'All';
+
+    const loginView = $('login-view');
+    const dashboardView = $('dashboard-view');
+    const loginError = $('login-error');
+
+    function showLoginError(message) {
+      loginError.textContent = message;
+      loginError.classList.remove('hidden');
+    }
+
+    async function accessToken() {
+      const { data } = await sb.auth.getSession();
+      return data?.session?.access_token || null;
+    }
+
+    async function api(path, options = {}) {
+      const token = await accessToken();
+      if (!token) throw Object.assign(new Error('Please log in.'), { status: 401 });
+
+      const response = await fetch(`${API}${path}`, {
+        ...options,
+        headers: {
+          ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      let data = {};
+      try { data = await response.json(); } catch { /* non-JSON error */ }
+
+      if (!response.ok) {
+        throw Object.assign(new Error(data.message || 'Request failed.'), { status: response.status });
+      }
+      return data;
+    }
+
+    // --- 1. AUTHENTICATION ---
+    async function checkSession() {
+      if (!sb) {
+        loginView.classList.remove('hidden');
+        dashboardView.classList.add('hidden');
+        showLoginError('Admin is not configured: set config.admin in js/config.js.');
+        return;
+      }
+
+      const { data: { session } } = await sb.auth.getSession();
+
+      if (session) {
+        loginView.classList.add('hidden');
+        dashboardView.classList.remove('hidden');
+        loadDashboardData();
+      } else {
+        loginView.classList.remove('hidden');
+        dashboardView.classList.add('hidden');
+      }
+    }
+
+    $('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!sb) return checkSession();
+
+      const { error } = await sb.auth.signInWithPassword({
+        email: $('email').value,
+        password: $('password').value
+      });
+
+      if (error) {
+        showLoginError(error.message);
+      } else {
+        loginError.classList.add('hidden');
+        $('password').value = '';
+        checkSession();
+      }
+    });
+
+    async function logout(message) {
+      await sb?.auth.signOut();
+      allOrders = [];
+      await checkSession();
+      if (message) showLoginError(message);
+    }
+
+    $('logout-btn').addEventListener('click', () => logout());
+    $('refresh-btn').addEventListener('click', () => loadDashboardData());
+
+    // --- 2. LOAD DASHBOARD DATA (backend verifies admin role) ---
+    async function loadDashboardData() {
+      try {
+        const d = await api('/api/admin/dashboard');
+
+        $('metric-today').textContent = money(d.todayRevenue);
+        $('metric-weekly').textContent = money(d.weeklyRevenue);
+        $('metric-monthly').textContent = money(d.monthlyRevenue);
+        $('metric-total-orders').textContent = d.totalOrders || 0;
+        $('metric-top-item').textContent = d.topItemsLabels?.[0] || 'N/A';
+
+        renderSalesChart(d.dates || [], d.dailyRevenue || []);
+        renderItems(d.topItemsLabels || [], d.topItemsData || []);
+
+        allOrders = d.orders || [];
+        renderFilters();
+        renderOrders();
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          return logout('This account is not authorised as an admin.');
+        }
+        $('orders-table-body').innerHTML =
+          `<tr><td colspan="7" class="p-4 text-center text-red-500">${esc(error.message)}</td></tr>`;
+      }
+    }
+
+    function renderSalesChart(dates, values) {
+      const labels = dates.map(d =>
+        new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
+
+      if (salesChart) salesChart.destroy();
+
+      salesChart = new Chart($('salesChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Revenue (Rs.)',
+            data: values,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointBackgroundColor: '#10b981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#333' }, ticks: { color: '#888' } },
+            x: { grid: { display: false }, ticks: { color: '#888', maxTicksLimit: 8 } }
+          }
+        }
+      });
+    }
+
+    function renderItems(labels, values) {
+      const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
+
+      if (itemsChart) itemsChart.destroy();
+
+      itemsChart = new Chart($('itemsChart').getContext('2d'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+      });
+
+      $('top-items-list').innerHTML = labels.length
+        ? labels.map((name, i) =>
+            `<li class="flex justify-between gap-2"><span class="truncate"><span style="color:${colors[i % colors.length]}">&#9679;</span> ${esc(name)}</span><b>${esc(values[i])}</b></li>`).join('')
+        : '<li class="text-gray-500">No completed, verified sales yet.</li>';
+    }
+
+    // --- 3. ORDERS: filter, search, render ---
+    function renderFilters() {
+      const counts = Object.fromEntries(ORDER_STATUSES.map(s => [s, allOrders.filter(o => o.order_status === s).length]));
+      const chips = [['All', allOrders.length], ...ORDER_STATUSES.map(s => [s, counts[s]])];
+
+      $('status-filters').innerHTML = chips.map(([name, n]) =>
+        `<button type="button" data-filter="${esc(name)}" class="px-3 py-1 rounded-full text-xs border ${name === statusFilter ? 'bg-white text-black border-white' : 'border-gray-700 text-gray-300 hover:border-gray-500'}">${esc(name)} ${n}</button>`).join('');
+    }
+
+    $('status-filters').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-filter]');
+      if (!b) return;
+      statusFilter = b.dataset.filter;
+      renderFilters();
+      renderOrders();
+    });
+
+    $('order-search').addEventListener('input', renderOrders);
+
+    const select = (orderId, field, options, current, colorClass) =>
+      `<select data-order="${esc(orderId)}" data-field="${field}" class="bg-black border border-gray-700 rounded p-1 text-xs w-full focus:outline-none focus:border-brand-accent ${colorClass}">${
+        options.map(o => `<option value="${esc(o)}" ${o === current ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+
+    function renderOrders() {
+      const q = $('order-search').value.trim().toLowerCase();
+
+      const rows = allOrders.filter(o =>
+        (statusFilter === 'All' || o.order_status === statusFilter) &&
+        (!q || [o.id, o.customer_name, o.phone_number, o.city].some(v => String(v || '').toLowerCase().includes(q))));
+
+      $('orders-count').textContent = `(${rows.length})`;
+
+      if (!rows.length) {
+        $('orders-table-body').innerHTML =
+          '<tr><td colspan="7" class="p-4 text-center text-gray-500">No orders match.</td></tr>';
+        return;
+      }
+
+      $('orders-table-body').innerHTML = rows.map(o => {
+        const payClass = o.payment_status === 'Verified' ? 'text-green-400'
+          : o.payment_status === 'Rejected' ? 'text-red-400' : 'text-yellow-400';
+        const ordClass = o.order_status === 'Completed' ? 'text-green-400'
+          : o.order_status === 'Returned' ? 'text-red-400' : 'text-blue-400';
+        const items = (o.items || []).map(i =>
+          `<div>${esc(i.qty)} × ${esc(i.name)}${i.size ? ` <span class="text-gray-500">(${esc(i.size)})</span>` : ''}</div>`).join('');
+
+        return `
+        <tr class="hover:bg-black/30 transition-colors align-top">
+          <td class="p-4 font-mono text-gray-300">${esc(o.id)}<div class="text-xs text-gray-500 font-sans">${esc(new Date(o.created_at).toLocaleString())}</div></td>
+          <td class="p-4">
+            <div class="font-bold">${esc(o.customer_name)}</div>
+            <div class="text-xs text-gray-400">${esc(o.phone_number)}</div>
+            <div class="text-xs text-gray-500">${esc(o.city)}, ${esc(o.address)}</div>
+            ${o.customer_note ? `<div class="text-xs text-gray-500 italic mt-1">Note: ${esc(o.customer_note)}</div>` : ''}
+          </td>
+          <td class="p-4 text-xs text-gray-300">${items}</td>
+          <td class="p-4 font-bold">${esc(money(o.total_amount))}</td>
+          <td class="p-4 space-y-1">
+            <div class="text-xs text-gray-400">${esc(PAYMENT_LABELS[o.payment_method] || o.payment_method)}</div>
+            ${select(o.id, 'payment', PAYMENT_STATUSES, o.payment_status, payClass)}
+          </td>
+          <td class="p-4">${select(o.id, 'status', ORDER_STATUSES, o.order_status, ordClass)}</td>
+          <td class="p-4">
+            ${o.screenshot_signed_url
+              ? `<button type="button" data-proof="${esc(o.screenshot_signed_url)}" class="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded text-xs border border-gray-600 transition">View Proof</button>`
+              : `<span class="text-xs text-gray-500 italic">${o.payment_method === 'cod' ? 'COD' : 'No image'}</span>`}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // --- 4. UPDATE STATUS (event delegation; no inline handlers) ---
+    $('orders-table-body').addEventListener('change', async (e) => {
+      const el = e.target.closest('select[data-order]');
+      if (!el) return;
+
+      const path = el.dataset.field === 'payment' ? 'payment' : 'status';
+      const body = el.dataset.field === 'payment'
+        ? { paymentStatus: el.value } : { orderStatus: el.value };
+
+      el.disabled = true;
+      try {
+        await api(`/api/admin/orders/${encodeURIComponent(el.dataset.order)}/${path}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body)
+        });
+      } catch (error) {
+        alert('Failed to update: ' + error.message);
+      }
+      loadDashboardData(); // refreshes orders, revenue and best sellers
+    });
+
+    // --- 5. PROOF MODAL ---
+    const modal = $('image-modal');
+
+    $('orders-table-body').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-proof]');
+      if (!b) return;
+      $('modal-image').src = b.dataset.proof;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      $('modal-image').src = '';
+    }
+    $('close-modal').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    checkSession();
+  </script>
+</body>
+</html>
