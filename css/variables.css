@@ -1,0 +1,22 @@
+
+/* Design tokens. Rebrand a client by editing this file only. */
+:root {
+  /* Premium Black & White Palette */
+  --bg: #ffffff;         /* Pure White */
+  --surface: #f9f9f9;    /* Very Light Gray for backgrounds */
+  --ink: #000000;        /* Pure Black for text */
+  --muted: #666666;      /* Dark Gray for secondary text */
+  --line: #e5e5e5;       /* Light Gray for borders */
+  --accent: #000000;     /* Black Accent for buttons & sale prices */
+  --on-ink: #ffffff;     /* White text on black buttons */
+  
+  /* Fonts */
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-ui: "Inter", system-ui, sans-serif;
+  
+  /* Spacing & Radius */
+  --s1: .25rem; --s2: .5rem; --s3: 1rem; --s4: 1.5rem; --s5: 2.5rem; --s6: 4rem;
+  --radius: 0px; /* 0px makes it look sharper and more modern */
+  --ease: .18s ease;
+  --focus: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink);
+}
